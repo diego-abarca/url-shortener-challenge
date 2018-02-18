@@ -1,17 +1,16 @@
 const router = require('express').Router();
 const url = require('./url');
+const { domain } = require('../../environment');
+const SERVER = `${domain.protocol}://${domain.host}`;
 
 
 router.get('/:hash', async (req, res, next) => {
 
   const source = await url.getUrl(req.params.hash);
 
-  // TODO: Respond accordingly when the hash wasn't found (404 maybe?)
+  if (source === null) return res.status(404).send(`${req.params.hash} not found`);
 
   // TODO: Hide fields that shouldn't be public
-
-  // TODO: Register visit
-
 
   // Behave based on the requested format using the 'Accept' header.
   // If header is not provided or is */* redirect instead.
@@ -33,23 +32,23 @@ router.get('/:hash', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
 
-  // TODO: Validate 'req.body.url' presence
+  if (!req.body.url) return res.status(400).send({error: "url field is required"})
+  if (!url.isValid(req.body.url)) return res.status(400).send({error: "url field is not a valid URL"})
 
   try {
     let shortUrl = await url.shorten(req.body.url, url.generateHash(req.body.url));
     res.json(shortUrl);
   } catch (e) {
-    // TODO: Personalized Error Messages
+    res.status(500).send({error: "Unexpected Error, please try again"})
     next(e);
   }
 });
 
 
-router.delete('/:hash/:removeToken', async (req, res, next) => {
-  // TODO: Remove shortened URL if the remove token and the hash match
-  let notImplemented = new Error('Not Implemented');
-  notImplemented.status = 501;
-  next(notImplemented);
+router.delete('/:hash/remove/:removeToken', async (req, res, next) => {
+  let deleted = await url.deleteURL(req.params.hash, req.params.removeToken)
+  if (deleted) return res.send({result: `${SERVER}/${req.params.hash} deleted`})
+  return res.status(404).send({error: `${SERVER}${req.url} not found or the hash is incorrect`})
 });
 
 module.exports = router;

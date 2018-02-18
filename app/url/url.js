@@ -6,35 +6,69 @@ const UrlModel = require('./schema');
 const parseUrl = require('url').parse;
 const validUrl = require('valid-url');
 
+const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+const ID_LENGTH = 6;
+
+function generate() {
+  let rtn = '';
+  for (var i = 0; i < ID_LENGTH; i++) {
+    rtn += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
+  }
+  return rtn;
+}
+
 /**
  * Lookup for existant, active shortened URLs by hash.
  * 'null' will be returned when no matches were found.
+ * if found, will register a visit
  * @param {string} hash
  * @returns {object}
  */
 async function getUrl(hash) {
-  let source = await UrlModel.findOne({ active: true, hash });
+  let source = await UrlModel.findOneAndUpdate(
+    {active: true, hash},
+    {
+      $push: {
+        visits: {date: Date.now()}
+      }
+    });
   return source;
 }
 
 /**
+ * Looks for existent, active shortened URLs and removeToken by hash
+ * if exists will logical delete
+ * if not, will return null
+ * @param {string} hash
+ * @param {string} removeToken
+ * @returns {object}
+ */
+async function deleteURL(hash, removeToken) {
+  let result = await UrlModel.findOneAndUpdate({active: true, hash, removeToken}, {
+    $set: {
+      active: false,
+      removedAt: new Date()
+    }
+  })
+  return result
+}
+
+/**
  * Generate an unique hash-ish- for an URL.
- * TODO: Deprecated the use of UUIDs.
- * TODO: Implement a shortening algorithm
  * @param {string} id
  * @returns {string} hash
  */
 function generateHash(url) {
-  // return uuidv5(url, uuidv5.URL);
-  return uuidv4();
+  return `${(+new Date).toString(36)}-${generate()}`;
 }
 
 /**
  * Generate a random token that will allow URLs to be (logical) removed
- * @returns {string} uuid v4
+ * @returns {string} hash
  */
 function generateRemoveToken() {
-  return uuidv4();
+  return `${(+new Date).toString(36)}-${generate()}`;
 }
 
 /**
@@ -73,7 +107,6 @@ async function shorten(url, hash) {
   });
 
   const saved = await shortUrl.save();
-  // TODO: Handle save errors
 
   return {
     url,
@@ -98,5 +131,6 @@ module.exports = {
   getUrl,
   generateHash,
   generateRemoveToken,
-  isValid
+  isValid,
+  deleteURL
 }

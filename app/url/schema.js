@@ -1,6 +1,14 @@
 const mongo = require('../../server/mongodb');
 const mongoose = require('mongoose');
 
+const visit = new mongoose.Schema({
+  date:{
+    type: Date,
+    default: Date.now(),
+    required: true
+  }
+})
+
 module.exports = mongo.model('Url', new mongoose.Schema({
   url: {
     type: String,
@@ -38,5 +46,7 @@ module.exports = mongo.model('Url', new mongoose.Schema({
     type: Boolean,
     required: true,
     default: true
-  }
+  },
+
+  visits: [visit]
 }));
